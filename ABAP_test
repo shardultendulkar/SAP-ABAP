@@ -1,0 +1,51 @@
+"AMDP with Select Option
+
+CLASS zjp_so_amdp_class DEFINITION
+  PUBLIC FINAL CREATE PUBLIC .
+
+  PUBLIC SECTION.
+
+    INTERFACES : if_amdp_marker_hdb.
+    TYPES : tt_flights  TYPE STANDARD TABLE OF /dmo/flight.
+    DATA : r_carrier TYPE RANGE OF /dmo/flight-carrier_id.
+ 
+    CLASS-METHODS :
+      call_amdp,
+      get_flights_range
+        IMPORTING VALUE(iv_where)   TYPE string
+        EXPORTING VALUE(et_flights) TYPE tt_flights.
+
+ENDCLASS.
+
+CLASS zjp_so_amdp_class IMPLEMENTATION.
+
+  METHOD call_amdp.
+    "Create range | Directly use select option here
+    r_carrier = VALUE #( sign = 'I' option = 'EQ'
+                         ( low = 'AZ')
+                         ( low = 'JP' )
+                       ).
+
+    "Prepare where from selection tabs
+    DATA(lv_where) = 
+      cl_shdb_seltab=>combine_seltabs(
+        EXPORTING
+          it_named_seltabs = VALUE #( ( name = 'CARRIER_ID'
+                                        dref = REF #( r_carrier ) ) )
+          iv_client_field  = 'CLIENT' ).  "Handle Client
+
+    get_flights_range( EXPORTING iv_where = lv_where
+                       IMPORTING et_flights = DATA(lt_flights) ).
+  ENDMETHOD.
+
+  METHOD get_flights_range BY DATABASE PROCEDURE
+                           FOR HDB
+                           LANGUAGE SQLSCRIPT
+                           OPTIONS READ-ONLY
+                           USING /dmo/flight.
+
+    et_flights = APPLY_FILTER ( "/DMO/FLIGHT", :iv_where );
+
+  ENDMETHOD.
+
+ENDCLASS.
